@@ -324,8 +324,17 @@ async def main():
     await application.run_polling()
 
 if __name__ == '__main__':
+    import sys
+
     try:
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(main())
-    except KeyboardInterrupt:
-        print("Остановка вручную") 
+        asyncio.run(main())
+    except RuntimeError as e:
+        # Если цикл уже работает (Termux/Cursor/встроенные среды) — обходим
+        if "event loop is already running" in str(e):
+            print("Цикл уже запущен, fallback: прямой await")
+            coro = main()
+            task = asyncio.ensure_future(coro)
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(task)
+        else:
+            raise e 
