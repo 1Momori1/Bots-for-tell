@@ -1,0 +1,15 @@
+{
+  "bot_token": "YOUR_TELESCAN_BOT_TOKEN_HERE",
+  "admin_ids": [123456789],
+  "monitoring": {
+    "check_interval": 60,
+    "cpu_threshold": 80,
+    "memory_threshold": 85,
+    "temperature_threshold": 45,
+    "disk_threshold": 90
+  },
+  "alerts": {
+    "enable_notifications": true,
+    "notification_interval": 300
+  }
+} 

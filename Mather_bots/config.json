@@ -1,0 +1,17 @@
+{
+  "bot_token": "YOUR_BOT_TOKEN_HERE",
+  "admin_ids": [123456789],
+  "bots": {
+    "telescan": {
+      "name": "Telescan Bot",
+      "path": "../Telescan_bot/main.py",
+      "enabled": true,
+      "auto_restart": true
+    }
+  },
+  "monitoring": {
+    "check_interval": 30,
+    "max_restart_attempts": 3,
+    "log_level": "INFO"
+  }
+} 
