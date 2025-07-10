@@ -332,9 +332,22 @@ if __name__ == '__main__':
         # Если цикл уже работает (Termux/Cursor/встроенные среды) — обходим
         if "event loop is already running" in str(e):
             print("Цикл уже запущен, fallback: прямой await")
-            coro = main()
-            task = asyncio.ensure_future(coro)
-            loop = asyncio.get_event_loop()
-            loop.run_until_complete(task)
+            try:
+                # Попробуем создать новый event loop
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                loop.run_until_complete(main())
+            except Exception as e2:
+                print(f"Ошибка fallback: {e2}")
+                # Последняя попытка - запустить в отдельном потоке
+                import threading
+                def run_bot():
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    loop.run_until_complete(main())
+                
+                thread = threading.Thread(target=run_bot)
+                thread.start()
+                thread.join()
         else:
             raise e 
