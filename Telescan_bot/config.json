@@ -1,6 +1,6 @@
 {
-  "bot_token": "YOUR_TELESCAN_BOT_TOKEN_HERE",
-  "admin_ids": [123456789],
+  "bot_token": "8190408039:AAE5yCTQxNCLLHLyn47bxnMYlk9B5opk4X0",
+  "admin_ids": [824312416],
   "monitoring": {
     "check_interval": 60,
     "cpu_threshold": 80,

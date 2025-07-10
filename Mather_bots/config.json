@@ -1,6 +1,6 @@
 {
-  "bot_token": "YOUR_BOT_TOKEN_HERE",
-  "admin_ids": [123456789],
+  "bot_token": "7684724135:AAEWhZ1vf9F5yFh__jKMA8ljnQ0ReojAEIU",
+  "admin_ids": [824312416],
   "bots": {
     "telescan": {
       "name": "Telescan Bot",
