@@ -231,4 +231,12 @@ async def main():
     await application.run_polling()
 
 if __name__ == '__main__':
-    asyncio.run(main()) 
+    try:
+        asyncio.run(main())
+    except RuntimeError as e:
+        if "event loop is already running" in str(e):
+            # Для Termux - используем существующий loop
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(main())
+        else:
+            raise e 
