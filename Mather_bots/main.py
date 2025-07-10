@@ -232,11 +232,7 @@ async def main():
 
 if __name__ == '__main__':
     try:
-        asyncio.run(main())
-    except RuntimeError as e:
-        if "event loop is already running" in str(e):
-            # Для Termux - используем существующий loop
-            loop = asyncio.get_event_loop()
-            loop.run_until_complete(main())
-        else:
-            raise e 
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(main())
+    except KeyboardInterrupt:
+        print("Остановка вручную") 
