@@ -1,0 +1,25 @@
+{
+  "bot_token": "YOUR_BOTMONITOR_TOKEN",
+  "admin_ids": [123456789],
+  "bots": {
+    "telescan": {
+      "name": "Telescan Bot",
+      "path": "../Telescan_bot/main.py",
+      "process_name": "python"
+    },
+    "mineserv": {
+      "name": "MineServ Bot",
+      "path": "../MineServ_bot/main.py",
+      "process_name": "python"
+    },
+    "manager": {
+      "name": "Manager Bot",
+      "path": "../Mather_bots/main.py",
+      "process_name": "python"
+    }
+  },
+  "monitoring": {
+    "update_interval": 30,
+    "auto_update": true
+  }
+} 

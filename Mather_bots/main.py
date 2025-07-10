@@ -10,6 +10,22 @@ from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
+import sys
+import traceback
+
+ERROR_LOG = 'errors.txt'
+
+def log_uncaught_exception(exc_type, exc_value, exc_traceback):
+    with open(ERROR_LOG, 'a', encoding='utf-8') as f:
+        f.write(f"\n{'='*40}\n")
+        f.write(f"Время: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"Тип: {exc_type.__name__}\n")
+        f.write(f"Ошибка: {exc_value}\n")
+        traceback.print_tb(exc_traceback, file=f)
+        f.write(f"{'='*40}\n")
+
+sys.excepthook = log_uncaught_exception
+
 # Попробуем импортировать nest_asyncio для Windows/IDE
 try:
     import nest_asyncio
@@ -48,7 +64,11 @@ class BotManager:
         if update.effective_user.id not in self.config.get('admin_ids', []):
             await update.message.reply_text("⛔ У вас нет доступа к этому боту!")
             return
-            
+        
+        await self.show_main_menu(update.message)
+    
+    async def show_main_menu(self, message_or_query):
+        """Показать главное меню"""
         keyboard = [
             [InlineKeyboardButton("📊 Статус ботов", callback_data='status')],
             [InlineKeyboardButton("▶️ Запустить всех", callback_data='start_all')],
@@ -57,13 +77,26 @@ class BotManager:
             [InlineKeyboardButton("📱 Система", callback_data='system')]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await update.message.reply_text(
-            "🤖 **Менеджер ботов**\n\n"
-            "Выберите действие:",
-            reply_markup=reply_markup,
-            parse_mode='Markdown'
-        )
+        text = "🤖 **Менеджер ботов**\n\nВыберите действие:"
+        # Корректно обновляем меню
+        if hasattr(message_or_query, 'edit_message_text'):
+            await message_or_query.edit_message_text(
+                text,
+                reply_markup=reply_markup,
+                parse_mode='Markdown'
+            )
+        elif hasattr(message_or_query, 'message'):
+            await message_or_query.message.edit_text(
+                text,
+                reply_markup=reply_markup,
+                parse_mode='Markdown'
+            )
+        else:
+            await message_or_query.reply_text(
+                text,
+                reply_markup=reply_markup,
+                parse_mode='Markdown'
+            )
     
     async def button_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Обработчик inline кнопок"""
@@ -80,30 +113,28 @@ class BotManager:
             await self.restart_all_bots(query)
         elif query.data == 'system':
             await self.show_system_info(query)
+        elif query.data == 'back_to_main':
+            await self.show_main_menu(query)
         elif query.data.startswith('bot_'):
-            await self.handle_bot_action(query)
+            await self.handle_bot_action(query, context)
     
     async def show_status(self, query):
-        """Показать статус всех ботов"""
+        """Показать статус всех ботов с кнопками управления под каждым ботом"""
         status_text = "📊 **Статус ботов:**\n\n"
-        
+        keyboard = []
         for bot_id, bot_config in self.config.get('bots', {}).items():
             is_running = bot_id in self.bot_processes and self.bot_processes[bot_id].poll() is None
             status = "🟢 Работает" if is_running else "🔴 Остановлен"
-            
-            keyboard = []
-            if is_running:
-                keyboard.append(InlineKeyboardButton("⏹️ Остановить", callback_data=f'bot_stop_{bot_id}'))
-                keyboard.append(InlineKeyboardButton("🔄 Перезапустить", callback_data=f'bot_restart_{bot_id}'))
-            else:
-                keyboard.append(InlineKeyboardButton("▶️ Запустить", callback_data=f'bot_start_{bot_id}'))
-            
             status_text += f"**{bot_config['name']}:** {status}\n"
-        
-        # Кнопка возврата
-        keyboard = [InlineKeyboardButton("🔙 Назад", callback_data='back_to_main')]
-        reply_markup = InlineKeyboardMarkup([keyboard])
-        
+            row = []
+            if is_running:
+                row.append(InlineKeyboardButton("⏹️ Остановить", callback_data=f'bot_stop_{bot_id}'))
+                row.append(InlineKeyboardButton("🔄 Перезапустить", callback_data=f'bot_restart_{bot_id}'))
+            else:
+                row.append(InlineKeyboardButton("▶️ Запустить", callback_data=f'bot_start_{bot_id}'))
+            keyboard.append(row)
+        keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data='back_to_main')])
+        reply_markup = InlineKeyboardMarkup(keyboard)
         await query.edit_message_text(
             status_text,
             reply_markup=reply_markup,
@@ -113,12 +144,24 @@ class BotManager:
     async def start_all_bots(self, query):
         """Запустить всех ботов"""
         started_count = 0
-        for bot_id in self.config.get('bots', {}):
-            if await self.start_bot(bot_id):
+        failed_bots = []
+        
+        for bot_id, bot_config in self.config.get('bots', {}).items():
+            if not bot_config.get('enabled', True):
+                continue
+                
+            success, error = await self.start_bot(bot_id)
+            if success:
                 started_count += 1
+            else:
+                failed_bots.append(f"{bot_config['name']}: {error}")
+        
+        message = f"✅ Запущено ботов: {started_count}"
+        if failed_bots:
+            message += f"\n❌ Ошибки:\n" + "\n".join(failed_bots)
         
         await query.edit_message_text(
-            f"✅ Запущено ботов: {started_count}",
+            message,
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Назад", callback_data='back_to_main')]])
         )
     
@@ -126,7 +169,8 @@ class BotManager:
         """Остановить всех ботов"""
         stopped_count = 0
         for bot_id in list(self.bot_processes.keys()):
-            if await self.stop_bot(bot_id):
+            success, _ = await self.stop_bot(bot_id)
+            if success:
                 stopped_count += 1
         
         await query.edit_message_text(
@@ -161,47 +205,82 @@ class BotManager:
             parse_mode='Markdown'
         )
     
-    async def handle_bot_action(self, query):
+    async def handle_bot_action(self, query, context):
         """Обработка действий с конкретным ботом"""
         action, bot_id = query.data.split('_', 2)[1:]
-        
+        error_message = None
         if action == 'start':
-            success = await self.start_bot(bot_id)
-            message = "✅ Бот запущен!" if success else "❌ Ошибка запуска бота"
+            success, error_message = await self.start_bot(bot_id, context)
         elif action == 'stop':
-            success = await self.stop_bot(bot_id)
-            message = "⏹️ Бот остановлен!" if success else "❌ Ошибка остановки бота"
+            success, error_message = await self.stop_bot(bot_id, context)
         elif action == 'restart':
-            success = await self.restart_bot(bot_id)
-            message = "🔄 Бот перезапущен!" if success else "❌ Ошибка перезапуска бота"
-        
-        await query.edit_message_text(
-            message,
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Назад", callback_data='status')]])
-        )
-    
-    async def start_bot(self, bot_id):
-        """Запустить конкретного бота"""
+            success, error_message = await self.restart_bot(bot_id, context)
+        # После действия возвращаемся к статусу
+        await self.show_status(query)
+        # Если была ошибка — отправляем админу
+        if error_message:
+            for admin_id in self.config.get('admin_ids', []):
+                await context.bot.send_message(admin_id, f"Ошибка: {error_message}")
+
+    async def start_bot(self, bot_id, context=None):
+        """Запустить конкретного бота универсально"""
+        import os, sys
         try:
             bot_config = self.config['bots'][bot_id]
+            
+            # Проверяем, не запущен ли уже бот
             if bot_id in self.bot_processes and self.bot_processes[bot_id].poll() is None:
                 logger.info(f"Бот {bot_id} уже запущен")
-                return True
+                return True, "Уже запущен"
             
-            process = subprocess.Popen(
-                ['python', bot_config['path']],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
-            )
+            # Получаем абсолютный путь к файлу бота
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            bot_path = os.path.abspath(os.path.join(current_dir, bot_config['path']))
+            
+            if not os.path.exists(bot_path):
+                error = f"Файл бота не найден: {bot_path}"
+                logger.error(error)
+                return False, error
+            
+            # Проверяем, что файл является Python скриптом
+            if not bot_path.endswith('.py'):
+                error = f"Файл не является Python скриптом: {bot_path}"
+                logger.error(error)
+                return False, error
+            
+            # Используем sys.executable для универсального запуска
+            python_exec = sys.executable
+            
+            # Запускаем процесс в зависимости от ОС
+            if os.name == 'nt':  # Windows
+                process = subprocess.Popen(
+                    [python_exec, bot_path],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    creationflags=subprocess.CREATE_NEW_CONSOLE
+                )
+            else:  # Linux/Android (Termux)
+                process = subprocess.Popen(
+                    [python_exec, bot_path],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE
+                )
+            
+            # Проверяем, что процесс запустился успешно
+            if process.poll() is not None:
+                error = f"Процесс завершился сразу после запуска"
+                logger.error(f"Ошибка запуска бота {bot_id}: {error}")
+                return False, error
+            
             self.bot_processes[bot_id] = process
             logger.info(f"Бот {bot_id} запущен (PID: {process.pid})")
-            return True
+            return True, None
+            
         except Exception as e:
             logger.error(f"Ошибка запуска бота {bot_id}: {e}")
-            return False
+            return False, str(e)
     
-    async def stop_bot(self, bot_id):
-        """Остановить конкретного бота"""
+    async def stop_bot(self, bot_id, context=None):
         try:
             if bot_id in self.bot_processes:
                 process = self.bot_processes[bot_id]
@@ -210,17 +289,16 @@ class BotManager:
                     process.wait(timeout=5)
                 del self.bot_processes[bot_id]
                 logger.info(f"Бот {bot_id} остановлен")
-                return True
-            return False
+                return True, None
+            return False, "Процесс не найден"
         except Exception as e:
             logger.error(f"Ошибка остановки бота {bot_id}: {e}")
-            return False
+            return False, str(e)
     
-    async def restart_bot(self, bot_id):
-        """Перезапустить конкретного бота"""
-        await self.stop_bot(bot_id)
+    async def restart_bot(self, bot_id, context=None):
+        await self.stop_bot(bot_id, context)
         await asyncio.sleep(2)
-        return await self.start_bot(bot_id)
+        return await self.start_bot(bot_id, context)
 
 async def main():
     """Основная функция"""

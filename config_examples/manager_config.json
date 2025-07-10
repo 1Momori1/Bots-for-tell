@@ -1,6 +1,6 @@
 {
-  "bot_token": "7684724135:AAEWhZ1vf9F5yFh__jKMA8ljnQ0ReojAEIU",
-  "admin_ids": [824312416],
+  "bot_token": "YOUR_MANAGER_BOT_TOKEN",
+  "admin_ids": [123456789],
   "bots": {
     "telescan": {
       "name": "Telescan Bot",
@@ -17,7 +17,6 @@
   },
   "monitoring": {
     "check_interval": 30,
-    "max_restart_attempts": 3,
-    "log_level": "INFO"
+    "auto_restart_delay": 10
   }
 } 

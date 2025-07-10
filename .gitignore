@@ -3,6 +3,9 @@
 logs/
 Mather_bots/manager.log
 Telescan_bot/telescan.log
+MineServ_bot/mineserv.log
+BotMonitor/bot_monitor.log
+errors.txt
 
 # Конфиденциальные файлы
 *.env
@@ -10,10 +13,33 @@ Telescan_bot/telescan.log
 config.json
 Mather_bots/config.json
 Telescan_bot/config.json
+MineServ_bot/config.json
+BotMonitor/config.json
 
 # Кэш и временные файлы
 __pycache__/
 *.pyc
 *.pyo
 *.swp
-.DS_Store 
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp 

@@ -6,10 +6,12 @@ import json
 import logging
 import psutil
 import schedule
+import sys
 import time
 from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
+import traceback
 
 # Попробуем импортировать nest_asyncio для Windows/IDE
 try:
@@ -28,6 +30,19 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+
+ERROR_LOG = 'errors.txt'
+
+def log_uncaught_exception(exc_type, exc_value, exc_traceback):
+    with open(ERROR_LOG, 'a', encoding='utf-8') as f:
+        f.write(f"\n{'='*40}\n")
+        f.write(f"Время: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"Тип: {exc_type.__name__}\n")
+        f.write(f"Ошибка: {exc_value}\n")
+        traceback.print_tb(exc_traceback, file=f)
+        f.write(f"{'='*40}\n")
+
+sys.excepthook = log_uncaught_exception
 
 class TelescanBot:
     def __init__(self):
@@ -317,18 +332,24 @@ class TelescanBot:
 
 async def main():
     """Основная функция"""
-    bot = TelescanBot()
-    
-    # Создание приложения
-    application = Application.builder().token(bot.config['bot_token']).build()
-    
-    # Добавление обработчиков
-    application.add_handler(CommandHandler("start", bot.start_command))
-    application.add_handler(CallbackQueryHandler(bot.button_handler))
-    
-    # Запуск бота
-    logger.info("Telescan Bot запущен")
-    await application.run_polling()
+    try:
+        bot = TelescanBot()
+        
+        # Создание приложения
+        application = Application.builder().token(bot.config['bot_token']).build()
+        
+        # Добавление обработчиков
+        application.add_handler(CommandHandler("start", bot.start_command))
+        application.add_handler(CallbackQueryHandler(bot.button_handler))
+        
+        # Запуск бота
+        logger.info("Telescan Bot запущен")
+        logger.info(f"Токен: {bot.config['bot_token'][:10]}...")
+        await application.run_polling()
+        
+    except Exception as e:
+        logger.error(f"Критическая ошибка в main(): {e}")
+        raise
 
 if __name__ == '__main__':
     import sys
