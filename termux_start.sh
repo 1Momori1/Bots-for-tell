@@ -7,9 +7,9 @@
 echo "🤖 Запуск системы ботов в Termux..."
 
 # Переходим в папку проекта
-cd /storage/emulated/0/Bots 2>/dev/null || cd ~/Bots 2>/dev/null || {
+cd /storage/emulated/0/Bots 2>/dev/null || cd ~/Bots 2>/dev/null || cd ~/Bots-for-tell 2>/dev/null || {
     echo "❌ Папка Bots не найдена!"
-    echo "Убедитесь, что проект находится в /storage/emulated/0/Bots или ~/Bots"
+    echo "Убедитесь, что проект находится в /storage/emulated/0/Bots, ~/Bots или ~/Bots-for-tell"
     exit 1
 }
 
