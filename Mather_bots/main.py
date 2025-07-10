@@ -10,6 +10,13 @@ from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
+# Попробуем импортировать nest_asyncio для Windows/IDE
+try:
+    import nest_asyncio
+    nest_asyncio.apply()
+except ImportError:
+    pass
+
 # Настройка логирования
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -240,21 +247,28 @@ if __name__ == '__main__':
         if "event loop is already running" in str(e):
             print("Цикл уже запущен, fallback: прямой await")
             try:
-                # Попробуем создать новый event loop
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
+                # Попробуем использовать nest_asyncio если доступен
+                import nest_asyncio
+                nest_asyncio.apply()
+                loop = asyncio.get_event_loop()
                 loop.run_until_complete(main())
-            except Exception as e2:
-                print(f"Ошибка fallback: {e2}")
-                # Последняя попытка - запустить в отдельном потоке
-                import threading
-                def run_bot():
+            except ImportError:
+                # Если nest_asyncio нет, используем старый fallback
+                try:
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)
                     loop.run_until_complete(main())
-                
-                thread = threading.Thread(target=run_bot)
-                thread.start()
-                thread.join()
+                except Exception as e2:
+                    print(f"Ошибка fallback: {e2}")
+                    # Последняя попытка - запустить в отдельном потоке
+                    import threading
+                    def run_bot():
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                        loop.run_until_complete(main())
+                    
+                    thread = threading.Thread(target=run_bot)
+                    thread.start()
+                    thread.join()
         else:
             raise e 
